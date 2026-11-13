@@ -1423,8 +1423,8 @@ long scenario_tags_load(
 
 				powerup_render_bounds_tags_loaded();
 			}
-			/* port: Captain Keyes's lower lip levelled, so that his mouth
-			closes, and opens, evenly (port/linux/game/captain_mouth.c) */
+			/* port: Captain Keyes's lower lip measured, to be levelled where
+			no emotion levels it (port/linux/game/captain_mouth.c) */
 			{
 				extern void captain_mouth_tags_loaded(void);
 
