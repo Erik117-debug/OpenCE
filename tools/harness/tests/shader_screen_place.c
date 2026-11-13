@@ -32,6 +32,9 @@ BOOL xgpu_reversed_depth = TRUE;
 #ifdef HALO_GLES
 struct { const char *shading_language; } xgpu_capabilities = { "300 es" };
 #endif
+/* the MCC environment pass's combiner (mcc_environment_shader_gl.c): no
+key here sets mcc_bump_attenuation, so it is never called */
+void mcc_environment_shader_emit(struct xgpu_text *text) { (void)text; }
 
 #include "under_test.inc"
 
