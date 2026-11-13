@@ -80,7 +80,8 @@ Version 45: a race track's flag whose number another flag has keeps the
 free number it is given (race_flags_make_unique, game/game_engine_race.c),
 and the overshield's collision material is an engineer's force field, not
 dirt (port/linux/game/overshield_material.c), so projectiles respond to it
-as the host's copy of them does. */
+as the host's copy of them does; and a second weapon in a multiplayer game
+is left to the action button (unit_should_autopick_weapon, game/players.c). */
 #define HALO_PORT_NETWORK_VERSION 45
 /* ... the advertisement's reserved bytes: the version (a little-endian word),
 then flags, then the game's kind (an OpenCE gametype's mode, and Hardcore:
