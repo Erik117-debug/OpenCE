@@ -868,8 +868,11 @@ set back behind the eye as far as keeps the open waist below the view
 (the way Halo 2 keeps its first-person body's open top out of sight), more
 the further down you look, and as far as keeps the legs clear of the eye
 (the knees of a crouched walk rise to it). It is drawn with the world's camera, so it keeps
-its place and size at any field of view. Hit boxes, markers and everything
-the game does with the body are unchanged.
+its place and size at any field of view. A mirror (the dynamic mirrors of
+some levels' floors and walls) shows your whole body and what you carry, as
+the game always has, set back as far as the legs, so that your legs meet
+their reflection. Hit boxes, markers and everything the game does with the
+body are unchanged.
 
 Only this machine's view changes. Nothing the machines send each other
 changes, so players with different settings play together.
@@ -2002,7 +2005,7 @@ Other changes:
 | `objects/widgets/glow.c` | A glow's trailing particles are made and aged by the ticks since the last frame (`game_time_get_elapsed`), not by the game's whole time (`game_time_get`), which made them up to the limit of glow particles every frame and aged each past its lifetime by the next. No stock map's glow has them; a Custom Edition map's can. |
 | `rasterizer/rasterizer_text.c`, `text/draw_string.c` | Text is drawn from an atlas of the fonts' glyphs, rasterized at the resolution the game draws at (`src/text_hires.c`), when the font has every character of the string. Text can be drawn scaled about a point (`rasterizer_text_set_scale`), as the players' names are. Each glyph's advance is centred on the font tag character's, so the layout is the same, and a glyph is cut at a text box only where the font tag's character visibly was. |
 | `interface/first_person_weapons.c` | The first-person hands are drawn with the unit's shield modifier shader, as its body is (`display.viewmodel_shield`). A needler's reload draws its needles growing toward those the reload loads (`needler_reload_rounds_loaded`), not toward the rounds left alone: with fewer than 20 left, they sank during the reload and popped up as it ended, on the Xbox too. |
-| `render/render_objects.c`, `objects/objects.c` | In first person, your own body is drawn from the waist down with the pose `first_person_legs.c` makes (`display.first_person_legs`); the waist it found and the mesh `object_mesh.c` read are forgotten on a new map. |
+| `render/render_objects.c`, `render/render.c`, `objects/objects.c` | In first person, your own body is drawn from the waist down with the pose `first_person_legs.c` makes (`display.first_person_legs`), and in a mirror whole, with what it carries, set back as far as the legs as the window's own view sets them back (`render.c` gives the mirror that view); the waist it found and the mesh `object_mesh.c` read are forgotten on a new map. |
 | `render/render_objects.c` | An object's shadow map is centered where the frame draws the object between the ticks (`display.interpolation`, `render_interpolation_object_point`), as its model is drawn into the map, not where the tick left it: a fast vehicle (a Ghost) stood up to a tick's travel off its map's center, and the map's edge and corner fade cut its shadow's trailing side, flickering. It is cast along its lighting's shadow vector as the frame draws it (`render_interpolation_shadow_vector`), turning smoothly between the steps the lighting turns it by each time it is calculated, not holding between them: a dropship's shadow, cast from high over the ground, hopped as the dropship flew. |
 | `objects/object_lights.c` | Glows the port lights itself (`shield_glow.c`): dynamic lights attached to an object's node, colored and sized each frame by their maker, drawn with a light definition the map has. |
 | `objects/objects.c` | a10 does not place Sergeant Johnson as a local game loads (`scenario_placement.c`): only its opening cinematic uses him, which creates him anew and deletes him after, and a player who skipped the cinematic (which goes back to a save made before it) found him standing in a hallway, on the Xbox too. Every other biped of a10's cinematics is placed not automatically. In a network game, where the objects placed as a map loads must be alike on every machine, he is placed as before. |
