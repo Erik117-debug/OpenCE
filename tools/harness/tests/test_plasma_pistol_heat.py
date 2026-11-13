@@ -11,7 +11,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from harness import CHECK_FAILED, build, function, mutated, read, run  # noqa: E402
 
-CASES = ["firing fast", "charging", "other meters", "setting off"]
+CASES = ["firing fast", "charging", "other meters", "next map", "setting off"]
 
 # a fault in the code and the case that must catch it
 NEGATIVE_CONTROLS = {

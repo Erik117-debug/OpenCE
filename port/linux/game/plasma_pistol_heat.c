@@ -44,24 +44,19 @@ static boolean plasma_pistol_heat_enabled(
 	return enabled;
 }
 
-/* whether a weapon definition is the plasma pistol's (the last one asked
-about, remembered) */
+/* whether a weapon definition is the plasma pistol's, by its name each time
+it is asked: a tag's index is the same number in every map (its place in the
+map's tags), so one remembered from the last map named another tag in the
+next, and the gauge went by the last map's answer */
 static boolean plasma_pistol_definition(
 	long definition_index)
 {
-	static long last_definition_index = NONE;
-	static boolean last_is_plasma_pistol = FALSE;
 	char const *name;
 
 	if (definition_index == NONE)
 		return FALSE;
-	if (definition_index != last_definition_index)
-	{
-		name = tag_get_name(definition_index);
-		last_definition_index = definition_index;
-		last_is_plasma_pistol = name && !csstrcmp(name, PLASMA_PISTOL_TAG_NAME);
-	}
-	return last_is_plasma_pistol;
+	name = tag_get_name(definition_index);
+	return name && !csstrcmp(name, PLASMA_PISTOL_TAG_NAME);
 }
 
 /* the gauge's value as the larger of its own and the weapon's heat */

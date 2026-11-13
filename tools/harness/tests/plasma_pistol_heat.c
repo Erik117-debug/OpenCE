@@ -100,6 +100,19 @@ int main(int argc, char **argv)
 			plasma_pistol_heat_meter_value(0, 0.2f));
 		return 0;
 	}
+	/* the next map: the plasma pistol's definition index names its plasma
+	rifle (a tag's index is its place in the map's tags), and the rifle's
+	gauge is as it was */
+	CASE("next map")
+	{
+		weapons[0].weapon.heat = 0.9f;
+		CHECK(near(plasma_pistol_heat_meter_value(0, 0.2f), 0.9f), "the first map's pistol: %g",
+			plasma_pistol_heat_meter_value(0, 0.2f));
+		definition_names[0] = "weapons\\plasma rifle\\plasma rifle";
+		CHECK(near(plasma_pistol_heat_meter_value(0, 0.2f), 0.2f), "the next map's rifle: %g",
+			plasma_pistol_heat_meter_value(0, 0.2f));
+		return 0;
+	}
 	/* the setting off: the stock gauge */
 	CASE("setting off")
 	{
