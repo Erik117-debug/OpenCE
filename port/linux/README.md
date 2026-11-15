@@ -797,6 +797,10 @@ Each frame shows the world between the last two ticks
   one shot to the next when they were too close to tell for a cut (the
   Captain's bridge in a10's opening), and what the script moved for the new
   shot slid there (Sergeant Johnson's next walk).
+- A view that changes hands a frame or more into a tick, after the camera
+  was kept for it (b40's opening gives the player the view back so), is a
+  cut too: it had turned to the player's aim while it stayed where the
+  cinematic's camera was until the next tick.
 - The first-person weapon's animations the game starts without blending
   into them (a melee, the weapon readied or overheated) are not mixed into
   either: the pose cuts, as on the Xbox. Mixed, the shotgun's melee swept
