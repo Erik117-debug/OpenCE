@@ -565,8 +565,9 @@ static const struct config_setting config_settings[] =
 		"it charges (2 seconds, 3 from a shield that was down) and staying lit,\n"
 		"its energy slower, in its own colors (green, as the shield meter's\n"
 		"overcharge is over 2 shields; the powerup's red at 2 or less), on the\n"
-		"first-person arms too with viewmodel_shield; a hit on it plays what the\n"
-		"projectile plays on an Elite's shield. Only what is drawn and heard\n"
+		"first-person arms too with viewmodel_shield, and as faint as a cloak is\n"
+		"strong; a hit on it plays what the projectile plays on an Elite's\n"
+		"shield. Only what is drawn and heard\n"
 		"changes.\n"
 		"In a network game, the host's network.shield_effects decides, unless\n"
 		"it is \"players\" (each player's own) or the game is co-op." },
