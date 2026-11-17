@@ -627,6 +627,12 @@ void scenario_tags_unload(
 
 		pelican_lights_tags_unloaded();
 	}
+	/* port: the crewman's arms forgotten (port/linux/game/crewman_hands.c) */
+	{
+		extern void crewman_hands_tags_unloaded(void);
+
+		crewman_hands_tags_unloaded();
+	}
 	sound_cache_close();
 	texture_cache_close();
 	/* port: the mods' tags go, after the sound and texture caches that held
@@ -1463,6 +1469,13 @@ long scenario_tags_load(
 				extern void captain_mouth_tags_loaded(void);
 
 				captain_mouth_tags_loaded();
+			}
+			/* port: the crewman's arms read from his model, for his hands to be
+			kept out of what he works (port/linux/game/crewman_hands.c) */
+			{
+				extern void crewman_hands_tags_loaded(void);
+
+				crewman_hands_tags_loaded();
 			}
 			/* port: the overshield's force field an engineer's, not dirt, as
 			the active camouflage's is (port/linux/game/overshield_material.c) */
