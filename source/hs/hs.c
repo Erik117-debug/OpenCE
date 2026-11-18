@@ -2846,6 +2846,7 @@ symbols in this file:
 #include "coop_scripts.h" /* port: port/linux/game/coop_scripts.c */
 #include "cryo_exit_foley.h" /* port: port/linux/game/cryo_exit_foley.c */
 #include "x10_warthogs.h" /* port: port/linux/game/x10_warthogs.c */
+#include "cryo_steam.h" /* port: port/linux/game/cryo_steam.c */
 #ifdef HALO_PROFILE
 #include "profile_console.h" /* port: port/linux/game/profile_console.c */
 #endif
@@ -15518,6 +15519,9 @@ boolean hs_scenario_postprocess(
 		foley of the Master Chief climbing out of his tube as far into his
 		climb as the tutorial on Normal does (cryo_exit_foley.c) */
 		cryo_exit_foley_scripts_loaded(scenario, hs_syntax_data);
+		/* port: a10's cryo tube opens without steam in the short cryo
+		scene (cryo_steam.c) */
+		cryo_steam_scripts_loaded(scenario, hs_syntax_data);
 		/* port: a10's hangar scene has its warthog behind Johnson on
 		Legendary too, destroyed out of sight before it crashes into the
 		hangar's far wall, and no other Johnson at a warthog's wheel
