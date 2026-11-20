@@ -3,15 +3,15 @@
 
 #include "config.inc"
 
-/* One local player's first-person weapon of two nodes, drawn from a camera at
-the origin looking along x (render_interpolation.c). Each tick the game poses
-the nodes in the world from the camera; each frame between ticks the pose is
-blended from the last tick's. */
+/* One local player's first-person weapon of three nodes, drawn from a camera
+at the origin looking along x (render_interpolation.c). Each tick the game
+poses the nodes in the world from the camera; each frame between ticks the
+pose is blended from the last tick's. */
 #define WEAPON 0x10002L
 #define OTHER_WEAPON 0x10003L
 #define GRAPH 0x20004L
 #define OTHER_GRAPH 0x20005L
-#define NODES 2
+#define NODES 3
 #define PI 3.14159265f
 
 struct render_camera { real_point3d position; real_vector3d forward, up; };
@@ -49,21 +49,23 @@ static void pose(short node, real x, real angle)
 	set_real_point3d(&matrix->position, x, 0.0f, 0.0f);
 }
 
-/* a frame drawn a fraction into a tick, both nodes so far along x */
+/* a frame drawn a fraction into a tick, the nodes so far along x */
 static void frame(long tick, real fraction, long weapon, long graph, real x)
 {
 	interpolation_tick = tick;
 	interpolation_fraction = fraction;
 	pose(0, x, 0.0f);
 	pose(1, x, 0.0f);
+	pose(2, x, 0.0f);
 	render_interpolation_first_person(0, weapon, graph, nodes, NODES, &camera, NONE, NULL, NULL);
 }
 
 /* a frame drawn with the ammunition's overlay showing a count, by its frame:
 node 1 is the one it moves (a shell), held by node 0, one it does not (the
-hand), so far along x; the shell so much further along x than the hand */
-static short const held_shell[NODES] = { NONE, 0 };
-static short const loose_shell[NODES] = { NONE, NONE };
+hand), so far along x; the shell (and node 2, which it holds) so much
+further along x than the hand */
+static short const held_shell[NODES] = { NONE, 0, 1 };
+static short const loose_shell[NODES] = { NONE, NONE, NONE };
 static void counted(long tick, real fraction, short count, real hand, real shell_on_hand, short const *parents)
 {
 	static unsigned long const count_nodes[BIT_VECTOR_SIZE_IN_LONGS(MAXIMUM_INTERPOLATED_NODES)] = { 1UL << 1 };
@@ -72,13 +74,33 @@ static void counted(long tick, real fraction, short count, real hand, real shell
 	interpolation_fraction = fraction;
 	pose(0, hand, 0.0f);
 	pose(1, hand + shell_on_hand, 0.0f);
+	pose(2, hand + shell_on_hand, 0.0f);
 	render_interpolation_first_person(0, WEAPON, GRAPH, nodes, NODES, &camera, count, count_nodes, parents);
+}
+
+/* a frame with no count: node 1 (a shell, held by node 0) and node 2 (on
+the shell) so much further along x than the hand, at hand */
+static void holding(long tick, real fraction, real hand, real shell_on_hand)
+{
+	interpolation_tick = tick;
+	interpolation_fraction = fraction;
+	pose(0, hand, 0.0f);
+	pose(1, hand + shell_on_hand, 0.0f);
+	pose(2, hand + shell_on_hand, 0.0f);
+	render_interpolation_first_person(0, WEAPON, GRAPH, nodes, NODES, &camera, NONE, NULL, held_shell);
 }
 
 static void expect_each(real hand, real shell)
 {
 	CHECK(fabs(nodes[0].position.x - hand) < 1e-4f && fabs(nodes[1].position.x - shell) < 1e-4f,
 		"drawn at %f and %f, not %f and %f", nodes[0].position.x, nodes[1].position.x, hand, shell);
+}
+
+static void expect_held(real hand, real shell)
+{
+	expect_each(hand, shell);
+	CHECK(fabs(nodes[2].position.x - shell) < 1e-4f, "what the shell holds drawn at %f, not %f",
+		nodes[2].position.x, shell);
 }
 
 static void expect(real x)
@@ -194,6 +216,40 @@ int main(int argc, char **argv)
 		counted(10, 1.0f, 3, 0.0f, 0.1f, loose_shell);
 		counted(11, 0.5f, 4, 0.8f, 0.3f, loose_shell);
 		expect_each(0.4f, 0.1f);
+	}
+	/* the shell put from where it sat on the hand (0) to 0.4 further along
+	in a tick, as the shotgun's reload puts it from the gun into the hand.
+	Through the tick it stays where it sat as the hand blends, with what it
+	holds (not slid across alone); the next tick it blends again */
+	CASE("jump")
+	{
+		holding(11, 1.0f, 0.0f, 0.0f);
+		holding(12, 0.5f, 0.8f, 0.4f);
+		expect_held(0.4f, 0.4f);
+		holding(13, 0.5f, 1.6f, 0.4f);
+		expect_held(1.2f, 1.6f);
+	}
+	/* a move on the hand too short to be a jump blends */
+	CASE("small")
+	{
+		holding(11, 1.0f, 0.0f, 0.0f);
+		holding(12, 0.5f, 0.0f, 0.05f);
+		expect_held(0.0f, 0.025f);
+	}
+	/* a move as long, by degrees (0.07 the tick before, 0.12 in this one),
+	as a melee moves the gun on the hand: blended */
+	CASE("by degrees")
+	{
+		holding(11, 1.0f, 0.0f, 0.0f);
+		holding(12, 1.0f, 0.0f, 0.07f);
+		holding(13, 0.5f, 0.0f, 0.19f);
+		expect_held(0.0f, 0.13f);
+	}
+	/* the first tick blended, with no move before it to measure by: blended */
+	CASE("first tick")
+	{
+		holding(11, 0.5f, 0.0f, 0.4f);
+		expect_held(0.0f, 0.2f);
 	}
 	/* no count shown (a needler's needles settling as its reload ends): nothing snaps */
 	CASE("no count")

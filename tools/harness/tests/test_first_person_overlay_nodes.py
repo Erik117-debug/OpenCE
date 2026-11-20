@@ -39,7 +39,8 @@ def generated(fault=None):
         re.search(r"^#define BIT_VECTOR_SET_FLAG\(.*", cseries, re.M).group(),
         structure(source, "animation_graph_node"),
     ]) + "\n"
-    code = function(source, "first_person_weapon_overlay_nodes") + "\n"
+    code = function(source, "first_person_weapon_node_parents") + "\n" + \
+        function(source, "first_person_weapon_overlay_nodes") + "\n"
     if fault:
         code = mutated(code, *fault)
     return (("config.inc", config), ("under_test.inc", code))
@@ -59,9 +60,12 @@ def test_negative_control(control):
 
 
 def test_wired():
-    """The ammunition's overlay, where it shows the rounds loaded, passes its frame and nodes to the interpolation."""
+    """The ammunition's overlay, where it shows the rounds loaded, passes its frame and nodes to the interpolation;
+    every weapon passes its nodes' parents (for a node put elsewhere in a tick), the overlay's or the graph's."""
     source = read("source/interface/first_person_weapons.c").replace("\r\n", "\n")
     build_node_matrices = function(source, "first_person_weapon_build_node_matrices")
     assert "count_frame= weapon->weapon.magazines[0].rounds_loaded;" in build_node_matrices
     assert ("count_frame,\n\t\t\tcount_frame!=NONE ? count_nodes : NULL,\n"
-            "\t\t\tcount_frame!=NONE ? count_parents : NULL);") in build_node_matrices
+            "\t\t\tcount_parents);") in build_node_matrices
+    parents = build_node_matrices.index("if (count_frame==NONE)\n\t\t{\n\t\t\tfirst_person_weapon_node_parents(")
+    assert parents < build_node_matrices.index("render_interpolation_first_person(")

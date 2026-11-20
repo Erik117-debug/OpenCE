@@ -1132,6 +1132,28 @@ static boolean first_person_weapon_animation_fits(
 	return FALSE;
 }
 
+/* port: each of the graph's first node_count nodes' parent, NONE for none
+(render_interpolation_first_person) */
+static void first_person_weapon_node_parents(
+	struct animation_graph *animation_graph,
+	short node_count,
+	short *parents)
+{
+	short node_index;
+
+	for (node_index= 0; node_index<node_count; node_index++)
+	{
+		struct animation_graph_node const *node= TAG_BLOCK_GET_ELEMENT(
+			&animation_graph->nodes,
+			node_index,
+			struct animation_graph_node);
+
+		parents[node_index]= VALID_INDEX(node->parent_node_index, node_count) ? node->parent_node_index : NONE;
+	}
+
+	return;
+}
+
 /* port: the nodes an overlay animation moves (it has their rotation,
 translation or scale), with their children, of the graph's first node_count
 nodes, as a bit vector, and each node's parent (render_interpolation_first_person) */
@@ -1146,15 +1168,7 @@ static void first_person_weapon_overlay_nodes(
 	boolean changed= TRUE;
 
 	csmemset(nodes, 0, BIT_VECTOR_SIZE_IN_LONGS(MAXIMUM_NODES_PER_ANIMATION)*sizeof(unsigned long));
-	for (node_index= 0; node_index<node_count; node_index++)
-	{
-		struct animation_graph_node const *node= TAG_BLOCK_GET_ELEMENT(
-			&animation_graph->nodes,
-			node_index,
-			struct animation_graph_node);
-
-		parents[node_index]= VALID_INDEX(node->parent_node_index, node_count) ? node->parent_node_index : NONE;
-	}
+	first_person_weapon_node_parents(animation_graph, node_count, parents);
 	for (node_index= 0; node_index<node_count && node_index<animation->node_count; node_index++)
 	{
 		if (BIT_VECTOR_TEST_FLAG(animation->nodes_with_rotation_flags, node_index) ||
@@ -1535,7 +1549,16 @@ static void first_person_weapon_build_node_matrices(
 			&render.camera.up);
 		/* the pose between the last two ticks (render_interpolation.c) */
 		/* port: no more nodes than the weapon's matrices hold (a map's count);
-		the weapon and its graph tell its poses from another weapon's */
+		the weapon and its graph tell its poses from another weapon's; each
+		node's parent, for a node put elsewhere in a tick (a shell into the
+		hand), as for the count's */
+		if (count_frame==NONE)
+		{
+			first_person_weapon_node_parents(
+				animation_graph,
+				(short)MIN(animation_graph->nodes.count, MAXIMUM_NODES_PER_ANIMATION),
+				count_parents);
+		}
 		render_interpolation_first_person(
 			local_player_index,
 			first_person_weapon->weapon_index,
@@ -1545,7 +1568,7 @@ static void first_person_weapon_build_node_matrices(
 			&render.camera,
 			count_frame,
 			count_frame!=NONE ? count_nodes : NULL,
-			count_frame!=NONE ? count_parents : NULL);
+			count_parents);
 	}
 
 	return;

@@ -1,6 +1,8 @@
 """The first-person weapon drawn between ticks: its own animations blended however far they move in a tick (a
 rocket launcher's melee), another weapon's or skeleton's pose never blended to, a node's half turn snapped, and
-the nodes of an overlay that shows a count (a shotgun's shells) not blended from one of its frames to the next."""
+the nodes of an overlay that shows a count (a shotgun's shells) not blended from one of its frames to the next,
+nor a node the animation puts elsewhere in a tick (the shell put from the gun into the hand as a reload starts),
+with what it holds."""
 import re
 import sys
 from pathlib import Path
@@ -11,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from harness import CHECK_FAILED, build, function, mutated, read, run, structure
 
 CASES = ['melee', 'weapon', 'graph', 'within a tick', 'gap', 'not a number', 'half turn', 'large turn', 'count',
-         'count kept', 'count loose', 'no count']
+         'count kept', 'count loose', 'jump', 'small', 'by degrees', 'first tick', 'no count']
 CONTROLS = [
     # the distance limit the weapon's identity replaced
     ('<= REAL_MAX))', '<= 0.25f * 0.25f))', 'melee'),
@@ -22,14 +24,27 @@ CONTROLS = [
     ('if (first_person->tick != interpolation_tick ||\n\t\tfirst_person->weapon_index != weapon_index ||\n'
      '\t\tfirst_person->animation_graph_index != animation_graph_index)',
      'if (first_person->tick != interpolation_tick)', 'within a tick'),
-    ('first_person->has_previous = first_person->tick == interpolation_tick - 1 &&',
-     'first_person->has_previous = ', 'gap'),
+    ('boolean continued = first_person->tick == interpolation_tick - 1 &&', 'boolean continued = ', 'gap'),
     ('< FIRST_PERSON_HALF_TURN_COSINE)', '< 0.0f)', 'half turn'),
     # the count's nodes blended through the gun as the count changes (before fix-first-person-count-snap)
     ('count_changed = node_parents &&', 'count_changed = FALSE &&', 'count'),
     # every node placed as the count changes, not the count's alone
-    ('placed[node_index] = !count_changed || !BIT_VECTOR_TEST_FLAG(first_person->count_nodes, node_index);',
-     'placed[node_index] = !count_changed;', 'count'),
+    ('!count_changed || !BIT_VECTOR_TEST_FLAG(first_person->count_nodes, node_index)) &&',
+     '!count_changed) &&', 'count'),
+    # a node put elsewhere in the tick blended (slid there alone)
+    ('\t\t\t!jumped;', '\t\t\tTRUE;', 'jump'),
+    # what it holds blended, left to slide
+    ('spreading = placing;', 'spreading = FALSE;', 'jump'),
+    # any move on the parent a jump, however short
+    ('move >= FIRST_PERSON_JUMP_DISTANCE * FIRST_PERSON_JUMP_DISTANCE &&\n\t\t\t', '', 'small'),
+    # a long move made by degrees a jump
+    (' &&\n\t\t\tmove > FIRST_PERSON_JUMP_RATIO * FIRST_PERSON_JUMP_RATIO * first_person->moves[node_index];', ';',
+     'by degrees'),
+    # the move before measured from the tick's own poses (none)
+    ('first_person->moves[node_index] = first_person_move_on_parent(\n\t\t\t\tfirst_person->previous,',
+     'first_person->moves[node_index] = first_person_move_on_parent(\n\t\t\t\tfirst_person->latest,', 'by degrees'),
+    # a jump told with no move before it measured
+    ('boolean jumped = first_person->has_moves &&\n\t\t\t', 'boolean jumped = ', 'first tick'),
     # the count's nodes placed every tick, its frame unchanged
     ('first_person->count_frame != first_person->previous_count_frame;', 'TRUE;', 'count kept'),
     # the count's nodes snapped to the tick's pose, ahead of the hand
@@ -61,6 +76,8 @@ def generated(fault=None):
         re.search(r'^#define BIT_VECTOR_TEST_FLAG\(.*', cseries, re.M).group(),
         re.search(r'^#define MAXIMUM_INTERPOLATED_NODES .*', source, re.M).group(),
         re.search(r'^#define FIRST_PERSON_HALF_TURN_COSINE .*', source, re.M).group(),
+        re.search(r'^#define FIRST_PERSON_JUMP_DISTANCE .*', source, re.M).group(),
+        re.search(r'^#define FIRST_PERSON_JUMP_RATIO .*', source, re.M).group(),
         re.search(r'^#define REAL_MAX .*', maths, re.M).group(),
         structure(maths, 'real_matrix4x3'),
         'typedef struct real_matrix4x3 real_matrix4x3;',
@@ -75,7 +92,7 @@ def generated(fault=None):
         [function(source, name) for name in
          ['lerp', 'point_lerp', 'vector_length', 'basis_is_rotation', 'quaternion_from_basis',
           'basis_from_quaternion', 'rotation_from_matrix', 'matrix_blend_rotations', 'distance_squared',
-          'render_interpolation_first_person']])
+          'first_person_move_on_parent', 'render_interpolation_first_person']])
     if fault:
         code = mutated(code, *fault)
     return (('config.inc', config), ('under_test.inc', code))

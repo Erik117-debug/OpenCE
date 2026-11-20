@@ -80,6 +80,15 @@ turn apart (the quaternions' dot product): which way it turned cannot be
 told, and blending either way spins it through poses it never had, as the
 rocket launcher's barrels set back by half a turn after a shot */
 #define FIRST_PERSON_HALF_TURN_COSINE 0.02f
+/* a first-person node put from one place to another in a tick, not moved
+there: it moved on its parent at least this far (world units) and more than
+twice as far as in the tick before. The shotgun's reload puts the shell from
+where it sat in the gun into the hand (0.145, after none), the sniper rifle's
+and the rocket launcher's their new magazine and tubes (0.13 after 0.04, and
+0.26); a plasma pistol's melee moves its gun on the hand as far, but by
+degrees (0.065, 0.085, 0.102) */
+#define FIRST_PERSON_JUMP_DISTANCE 0.1f
+#define FIRST_PERSON_JUMP_RATIO 2.0f
 /* a correction's difference left drawn after each tick (of 1) */
 #define CORRECTION_DECAY 0.6f
 /* ... and small enough to be none */
@@ -154,6 +163,10 @@ struct interpolated_first_person
 	short count_frame;
 	short previous_count_frame;
 	unsigned long count_nodes[BIT_VECTOR_SIZE_IN_LONGS(MAXIMUM_INTERPOLATED_NODES)];
+	/* how far (squared) each node moved on its parent in the tick before
+	the one blended to, when that tick was blended too */
+	boolean has_moves;
+	real moves[MAXIMUM_INTERPOLATED_NODES];
 	real_matrix4x3 previous[MAXIMUM_INTERPOLATED_NODES];
 	real_matrix4x3 latest[MAXIMUM_INTERPOLATED_NODES];
 };
@@ -398,6 +411,29 @@ static real distance_squared(real_point3d const *a, real_point3d const *b)
 	real x = a->x - b->x, y = a->y - b->y, z = a->z - b->z;
 
 	return x * x + y * y + z * z;
+}
+
+/* how far (squared) a first-person node moved on its parent from one pose
+to the next: none without a parent, or with one scaled to nothing */
+static real first_person_move_on_parent(
+	real_matrix4x3 const *from,
+	real_matrix4x3 const *to,
+	short const *node_parents,
+	short node_count,
+	short node_index)
+{
+	short parent = node_parents ? node_parents[node_index] : NONE;
+	real_matrix4x3 inverse_parent;
+	real_matrix4x3 from_local;
+	real_matrix4x3 to_local;
+
+	if (parent < 0 || parent >= node_count || from[parent].scale == 0.0f || to[parent].scale == 0.0f)
+		return 0.0f;
+	matrix4x3_inverse(&from[parent], &inverse_parent);
+	matrix4x3_multiply(&inverse_parent, &from[node_index], &from_local);
+	matrix4x3_inverse(&to[parent], &inverse_parent);
+	matrix4x3_multiply(&inverse_parent, &to[node_index], &to_local);
+	return distance_squared(&from_local.position, &to_local.position);
 }
 
 /* ---------- ticks */
@@ -923,9 +959,13 @@ camera each frame, from animation state that changes once a tick: blend the
 pose relative to the camera. count_frame is the frame of the overlay that
 shows a count (the ammunition's: a shotgun's shells), NONE for none,
 count_nodes (a bit vector) the nodes it moves, with their children, and
-node_parents each node's parent (NONE for none): when the count changes,
-those nodes go from one of its frames to the next in a tick, as on the Xbox,
-not through the gun between them. */
+node_parents each node's parent (NONE for none; NULL for none known): when
+the count changes, those nodes go from one of its frames to the next in a
+tick, as on the Xbox, not through the gun between them. So does a node the
+animation puts from one place to another in a tick (FIRST_PERSON_JUMP_DISTANCE),
+with what it holds, as the shotgun's reload puts the shell from the gun into
+the hand: blended, the shell slid out of the gun alone, the hand still off
+the screen. */
 void render_interpolation_first_person(
 	short local_player_index,
 	long weapon_index,
@@ -946,6 +986,7 @@ void render_interpolation_first_person(
 	boolean placed[MAXIMUM_INTERPOLATED_NODES];
 	boolean count_changed;
 	boolean placing;
+	boolean spreading;
 	short node_index;
 
 	if (!interpolation_rendering ||
@@ -965,10 +1006,23 @@ void render_interpolation_first_person(
 		before: not one left from before the view was last away from first
 		person (zoomed, in a vehicle, dead, in a cinematic), seconds old, and
 		not another weapon's or skeleton's (of as many nodes) */
-		first_person->has_previous = first_person->tick == interpolation_tick - 1 &&
+		boolean continued = first_person->tick == interpolation_tick - 1 &&
 			first_person->node_count == node_count &&
 			first_person->weapon_index == weapon_index &&
 			first_person->animation_graph_index == animation_graph_index;
+
+		/* and each node's move in the tick that pose ended, if it began one blended */
+		first_person->has_moves = continued && first_person->has_previous && node_parents;
+		for (node_index = 0; first_person->has_moves && node_index < node_count; node_index++)
+		{
+			first_person->moves[node_index] = first_person_move_on_parent(
+				first_person->previous,
+				first_person->latest,
+				node_parents,
+				node_count,
+				node_index);
+		}
+		first_person->has_previous = continued;
 		memcpy(first_person->previous, first_person->latest, sizeof(first_person->previous));
 		first_person->previous_count_frame = first_person->count_frame;
 		first_person->tick = interpolation_tick;
@@ -1001,16 +1055,28 @@ void render_interpolation_first_person(
 	count_changed = node_parents &&
 		first_person->count_frame != NONE &&
 		first_person->count_frame != first_person->previous_count_frame;
+	placing = FALSE;
 	for (node_index = 0; node_index < node_count; node_index++)
 	{
 		struct interpolation_rotation const *previous_rotation = &previous_rotations[node_index];
 		struct interpolation_rotation const *latest_rotation = &latest_rotations[node_index];
 		real_matrix4x3 *blended = &drawn[node_index];
+		real move = first_person_move_on_parent(
+			first_person->previous,
+			first_person->latest,
+			node_parents,
+			node_count,
+			node_index);
+		boolean jumped = first_person->has_moves &&
+			move >= FIRST_PERSON_JUMP_DISTANCE * FIRST_PERSON_JUMP_DISTANCE &&
+			move > FIRST_PERSON_JUMP_RATIO * FIRST_PERSON_JUMP_RATIO * first_person->moves[node_index];
 
-		placed[node_index] = !count_changed || !BIT_VECTOR_TEST_FLAG(first_person->count_nodes, node_index);
+		placed[node_index] = (!count_changed || !BIT_VECTOR_TEST_FLAG(first_person->count_nodes, node_index)) &&
+			!jumped;
 		if (!placed[node_index])
 		{
 			/* (placed below, on its parent) */
+			placing = TRUE;
 		}
 		else if (previous_rotation->is_rotation && latest_rotation->is_rotation &&
 			fabs(previous_rotation->quaternion.i * latest_rotation->quaternion.i +
@@ -1032,19 +1098,35 @@ void render_interpolation_first_person(
 				blended);
 		}
 	}
-	/* the count changed: a node it moves (a shell, and what it holds) stays
-	where the tick before had it on its parent, as the parent is drawn, and
-	takes its new place as the blend reaches the tick that moved it, as the
-	frame was drawn with the hand there: not through the gun to it, and not
-	ahead of the hand. A parent first, wherever it comes; without a parent
-	(or one scaled to nothing), as the tick before had it. */
-	placing = count_changed;
+	/* what a node put elsewhere holds goes with it */
+	spreading = placing;
+	while (spreading)
+	{
+		spreading = FALSE;
+		for (node_index = 0; node_index < node_count; node_index++)
+		{
+			short parent = node_parents ? node_parents[node_index] : NONE;
+
+			if (placed[node_index] && parent >= 0 && parent < node_count && !placed[parent])
+			{
+				placed[node_index] = FALSE;
+				spreading = TRUE;
+			}
+		}
+	}
+	/* the count changed, or a node was put elsewhere: a node the count
+	moves (a shell, and what it holds), or that one, stays where the tick
+	before had it on its parent, as the parent is drawn, and takes its new
+	place as the blend reaches the tick that moved it, as the frame was drawn
+	with the hand there: not through the gun to it, and not ahead of the
+	hand. A parent first, wherever it comes; without a parent (or one scaled
+	to nothing), as the tick before had it. */
 	while (placing)
 	{
 		placing = FALSE;
 		for (node_index = 0; node_index < node_count; node_index++)
 		{
-			short parent = node_parents[node_index];
+			short parent = node_parents ? node_parents[node_index] : NONE;
 
 			if (placed[node_index])
 				continue;
